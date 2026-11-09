@@ -1,0 +1,15 @@
+# Payegis Studio v3.1 — The Financial Control Plane for Autonomous Commerce
+
+> Payegis Studio v3.1 is an AI procurement governance, payment authorization, fulfillment verification, and multi-vendor settlement orchestration platform built on the PayPal Developer Platform (`@paypal/paypal-server-sdk@2.5.0` & `@paypal/agent-toolkit@1.0.2`).
+
+## Canonical Root Modules & Documentation
+
+- [Interactive Web Console](index.html): Dual-mode control plane with 4 Judge Tours, strict sequential & temporal FSM gates, full-width AG Grid v32.3.3 vendor matrix, Chart.js settlement waterfall, reversible Sandbox Clock simulator, and multi-version ISO/IEC 18004 QR generator.
+- [Full-Stack HTTP Server](server.mjs): Node.js server exposing `/api/health`, `/api/state`, `/api/audit/verify-chain`, `/api/ai/deliberate`, `/api/ai/toolkit-manifest`, `/api/ai/execute-tool`, `/api/escrow/*`, and `/api/benchmark/run-20`.
+- [Deterministic FSM & Policy Guard](fsm-and-policy.mjs): Enforces state transitions, integer-cent math, Base64/Unicode prompt-injection decoding, SHA-256 tamper-evident audit hash chaining, ISO/IEC 18004 QR encoding/decoding, and 20 live benchmark cases.
+- [Live PayPal API & SDK Integration](paypal-core.mjs): Implements OAuth2 caching, Create Order (`AUTHORIZE`), Order Witness, Authorize Order (`/authorize`), Reauthorize, Partial Capture (`$668`, `final_capture: false`), Void Remainder (`$500`), Payouts v1 Split (`$668`), Disputes v1 Evidence, and Invoices v2 QR.
+- [AI Procurement Agent & Channel3 Client](ai-procurement-agent.mjs): Connects to live LLM endpoints (`AI_API_KEY`) and Channel3 (`CHANNEL3_API_KEY`) with schema validation and guarded tool execution.
+- [Durable Checkpoint & Operation Journal Store](persistence-store.mjs): Persists sessions and operation journals to PostgreSQL (`DATABASE_URL`) or local atomic snapshot + append-only JSONL journal (`.payegis-data/`).
+- [30-Suite Automated Test File](payegis.test.mjs): Run via `npm test` (`30/30 passing`).
+- [8-Step Postman v2.1 Collection](Payegis_PayPal_v2.1.postman_collection.json): Chains OAuth2, Create Order, Authorize Order, Get Order Witness, Reauthorize, Partial Capture, Void Remainder, and Split Payout.
+- [APIMatic SDK Report](APIMATIC.md): Documents `@paypal/paypal-server-sdk@2.5.0` `retryConfig` and zero-retry timeout reconciliation.

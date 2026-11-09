@@ -1,0 +1,25 @@
+name: Payegis Studio CI & Security Benchmark
+
+on:
+  push:
+    branches: [ main, "fix/**" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Automated Test Suite
+        run: npm test
+
+      - name: Run 20-Case Security & FSM Benchmark
+        run: npm run benchmark

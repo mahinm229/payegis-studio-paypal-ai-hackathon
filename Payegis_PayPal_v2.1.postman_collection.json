@@ -1,0 +1,293 @@
+{
+  "info": {
+    "_postman_id": "9f8c7d6e-5a4b-4c3d-8e2f-1a0b9c8d7e6f",
+    "name": "Payegis Studio v3.0 — PayPal AI Hackathon 8-Step Verified Escrow Lifecycle Collection (v2.1)",
+    "description": "End-to-end verifiable Postman v2.1 Collection for Payegis Studio covering PayPal's exact official 8-step lifecycle: (1) OAuth2 Token Generation, (2) Create Order — intent: AUTHORIZE ($1,168.00), (3) Authorize Approved Order (POST /v2/checkout/orders/{{order_id}}/authorize), (4) GET Order Witness & Verify Authorization ID, (5) Day 4+ Reauthorize Hold, (6) Partial Capture ($668.00, final_capture: false), (7) Void Remaining Uncaptured Authorization ($500.00), and (8) Multi-Vendor Split Payout ($668.00).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://api-m.sandbox.paypal.com", "type": "string" },
+    { "key": "paypal_client_id", "value": "YOUR_SANDBOX_CLIENT_ID", "type": "string" },
+    { "key": "paypal_client_secret", "value": "YOUR_SANDBOX_CLIENT_SECRET", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "order_id", "value": "", "type": "string" },
+    { "key": "buyer_approve_url", "value": "", "type": "string" },
+    { "key": "authorization_id", "value": "", "type": "string" },
+    { "key": "capture_id", "value": "", "type": "string" },
+    { "key": "payout_batch_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. OAuth2 Client Credentials Token (POST /v1/oauth2/token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Access token is returned', function () { pm.expect(json.access_token).to.be.a('string'); });",
+              "if (json.access_token) { pm.collectionVariables.set('access_token', json.access_token); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{paypal_client_id}}", "type": "string" },
+            { "key": "password", "value": "{{paypal_client_secret}}", "type": "string" }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "client_credentials", "type": "text" }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/v1/oauth2/token",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "oauth2", "token"]
+        }
+      }
+    },
+    {
+      "name": "2. Create Escrow Order — intent: AUTHORIZE $1,168.00 (POST /v2/checkout/orders)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 201 Created or 200 OK', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+              "const json = pm.response.json();",
+              "pm.test('Order intent is AUTHORIZE', function () { pm.expect(json.intent).to.eql('AUTHORIZE'); });",
+              "if (json.id) { pm.collectionVariables.set('order_id', json.id); }",
+              "const approveLink = (json.links || []).find(l => l.rel === 'payer-action' || l.rel === 'approve');",
+              "if (approveLink) { pm.collectionVariables.set('buyer_approve_url', approveLink.href); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "PayPal-Request-Id", "value": "REQ-ORDER-CREATE-{{$timestamp}}" },
+          { "key": "Prefer", "value": "return=representation" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"intent\": \"AUTHORIZE\",\n  \"purchase_units\": [\n    {\n      \"reference_id\": \"PAYEGIS-ESCROW-UNIT-01\",\n      \"invoice_id\": \"INV-2026-{{$timestamp}}\",\n      \"description\": \"Multi-Vendor AI Infrastructure Procurement (3 Tranches)\",\n      \"amount\": {\n        \"currency_code\": \"USD\",\n        \"value\": \"1168.00\"\n      }\n    }\n  ],\n  \"payment_source\": {\n    \"paypal\": {\n      \"experience_context\": {\n        \"brand_name\": \"Payegis Studio Control Plane\",\n        \"user_action\": \"CONTINUE\",\n        \"return_url\": \"https://mahinm229.github.io/payegis-studio-paypal-ai-hackathon/?paypal_approved=1\",\n        \"cancel_url\": \"https://mahinm229.github.io/payegis-studio-paypal-ai-hackathon/?paypal_cancelled=1\"\n      }\n    }\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v2/checkout/orders",
+          "host": ["{{base_url}}"],
+          "path": ["v2", "checkout", "orders"]
+        }
+      }
+    },
+    {
+      "name": "3. Authorize Buyer-Approved Order — Extract authorization_id (POST /v2/checkout/orders/{{order_id}}/authorize)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 201 Created or 200 OK', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+              "const json = pm.response.json();",
+              "const auths = (((json.purchase_units || [])[0] || {}).payments || {}).authorizations || [];",
+              "pm.test('Authorization ID is generated', function () { pm.expect(auths.length).to.be.above(0); });",
+              "if (auths.length > 0 && auths[0].id) { pm.collectionVariables.set('authorization_id', auths[0].id); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "PayPal-Request-Id", "value": "REQ-ORDER-AUTH-{{$timestamp}}" },
+          { "key": "Prefer", "value": "return=representation" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v2/checkout/orders/{{order_id}}/authorize",
+          "host": ["{{base_url}}"],
+          "path": ["v2", "checkout", "orders", "{{order_id}}", "authorize"]
+        }
+      }
+    },
+    {
+      "name": "4. Verify Order Witness & Confirm Authorization State (GET /v2/checkout/orders/{{order_id}})",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Order ID matches witness', function () { pm.expect(json.id).to.eql(pm.collectionVariables.get('order_id')); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/v2/checkout/orders/{{order_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["v2", "checkout", "orders", "{{order_id}}"]
+        }
+      }
+    },
+    {
+      "name": "5. Day 4+ Reauthorize Hold — Renew 3-Day Honor Period (POST /v2/payments/authorizations/{{authorization_id}}/reauthorize)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "if (json.id) { pm.collectionVariables.set('authorization_id', json.id); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "PayPal-Request-Id", "value": "REQ-REAUTH-{{$timestamp}}" },
+          { "key": "Prefer", "value": "return=representation" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": {\n    \"currency_code\": \"USD\",\n    \"value\": \"1168.00\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v2/payments/authorizations/{{authorization_id}}/reauthorize",
+          "host": ["{{base_url}}"],
+          "path": ["v2", "payments", "authorizations", "{{authorization_id}}", "reauthorize"]
+        }
+      }
+    },
+    {
+      "name": "6. Partial Capture Verified Tranches — $668.00, final_capture: false (POST /v2/payments/authorizations/{{authorization_id}}/capture)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "pm.test('Capture amount is 668.00 USD', function () { pm.expect(json.amount.value).to.eql('668.00'); });",
+              "pm.test('final_capture is false', function () { pm.expect(json.final_capture).to.eql(false); });",
+              "if (json.id) { pm.collectionVariables.set('capture_id', json.id); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "PayPal-Request-Id", "value": "REQ-PARTIAL-CAPTURE-{{$timestamp}}" },
+          { "key": "Prefer", "value": "return=representation" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": {\n    \"currency_code\": \"USD\",\n    \"value\": \"668.00\"\n  },\n  \"final_capture\": false,\n  \"note_to_payer\": \"Partial capture for 2 verified delivered items (NebulaCompute $420 + VectorIndex $248). Remaining $500 held.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v2/payments/authorizations/{{authorization_id}}/capture",
+          "host": ["{{base_url}}"],
+          "path": ["v2", "payments", "authorizations", "{{authorization_id}}", "capture"]
+        }
+      }
+    },
+    {
+      "name": "7. Void Uncaptured Remainder — Release $500.00 SLA-Breached Hold (POST /v2/payments/authorizations/{{authorization_id}}/void)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 204 No Content or 200 OK', function () { pm.expect(pm.response.code).to.be.oneOf([200, 204]); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "PayPal-Request-Id", "value": "REQ-VOID-REMAINDER-{{$timestamp}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/v2/payments/authorizations/{{authorization_id}}/void",
+          "host": ["{{base_url}}"],
+          "path": ["v2", "payments", "authorizations", "{{authorization_id}}", "void"]
+        }
+      }
+    },
+    {
+      "name": "8. Multi-Vendor Split Payout — Disburse $668.00 Across 2 Verified Vendors (POST /v1/payments/payouts)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 201 Created', function () { pm.response.to.have.status(201); });",
+              "const json = pm.response.json();",
+              "if (json.batch_header && json.batch_header.payout_batch_id) { pm.collectionVariables.set('payout_batch_id', json.batch_header.payout_batch_id); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "PayPal-Request-Id", "value": "REQ-PAYOUT-SPLIT-{{$timestamp}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sender_batch_header\": {\n    \"sender_batch_id\": \"PAYEGIS-BATCH-{{$timestamp}}\",\n    \"email_subject\": \"Payegis StagePay Verified Vendor Settlement\",\n    \"email_message\": \"Your verified tranche delivery has been settled via PayPal Payouts v1.\"\n  },\n  \"items\": [\n    {\n      \"recipient_type\": \"EMAIL\",\n      \"amount\": { \"value\": \"420.00\", \"currency\": \"USD\" },\n      \"receiver\": \"sb-nebulacompute@business.example.com\",\n      \"note\": \"Settlement for CH3-GPU-NODE-01\",\n      \"sender_item_id\": \"ITEM-PAYEGIS-01\"\n    },\n    {\n      \"recipient_type\": \"EMAIL\",\n      \"amount\": { \"value\": \"248.00\", \"currency\": \"USD\" },\n      \"receiver\": \"sb-vectorindex@business.example.com\",\n      \"note\": \"Settlement for CH3-SERP-API-02\",\n      \"sender_item_id\": \"ITEM-PAYEGIS-02\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/v1/payments/payouts",
+          "host": ["{{base_url}}"],
+          "path": ["v1", "payments", "payouts"]
+        }
+      }
+    }
+  ]
+}

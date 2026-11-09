@@ -1,0 +1,38 @@
+# Render Blueprint Specification (render.yaml)
+# Docs: https://render.com/docs/blueprint-spec
+# HITL Pattern Reference: https://render.com/articles/human-in-the-loop-without-the-hacks-pausing-an-agent-mid-run-for-approval-workfl
+# Note: Render Workflows has no in-memory pause/sleep primitive; runs terminate at the
+# human gate, persist `PENDING_HUMAN_GATE` state in PostgreSQL, and resume via a new run
+# when the human approver submits the signed authorization decision.
+
+services:
+  - type: web
+    name: payegis-studio-escrow-os
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: payegis-hitl-checkpoint-db
+          property: connectionString
+
+databases:
+  - name: payegis-hitl-checkpoint-db
+    plan: basic-256mb
+    databaseName: payegis_hitl_state
+    user: payegis_admin

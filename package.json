@@ -1,0 +1,37 @@
+{
+  "name": "payegis-studio-paypal-ai-hackathon",
+  "version": "3.5.0",
+  "description": "Payegis Studio v3.5 — The Financial Control Plane for Autonomous Commerce (Human-Gated PayPal Authorization, Partial Capture, Uncaptured Hold Release & Multi-Vendor Settlement)",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test payegis.test.mjs",
+    "benchmark": "node -e \"import('./fsm-and-policy.mjs').then(m => console.table(m.runTwentyCaseBenchmark().summary))\""
+  },
+  "keywords": [
+    "paypal",
+    "paypal-ai-hackathon",
+    "agentic-commerce",
+    "orders-v2",
+    "payments-v2",
+    "payouts-v1",
+    "disputes-v1",
+    "invoices-v2",
+    "ag-grid",
+    "channel3",
+    "apimatic",
+    "render"
+  ],
+  "author": "Tufayel Ahmed Mahin (@mahinm229)",
+  "license": "MIT",
+  "dependencies": {
+    "@paypal/paypal-server-sdk": "^2.5.0",
+    "@paypal/agent-toolkit": "^1.0.2",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
